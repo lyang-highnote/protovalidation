@@ -25,5 +25,8 @@ jobs:
         with:
           setup_only: true
 
+      - name: Check formatting
+        run: mvn -B spotless:check
+
       - name: Run tests
         run: mvn -B test

@@ -13,7 +13,6 @@ import com.bennet.grpc.v1.gen.HelloServiceGrpc;
 import com.bennet.grpc.v1.gen.SayHelloRequest;
 import com.bennet.grpc.v1.gen.SayHelloResponse;
 import com.google.protobuf.Any;
-import com.google.protobuf.InvalidProtocolBufferException;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
@@ -116,26 +115,28 @@ class ValidationInterceptorTest {
   }
 
   @Test
-  void emptyName_shouldContainViolationDetails() throws InvalidProtocolBufferException {
+  void emptyName_shouldContainViolationDetails() {
     SayHelloRequest request = SayHelloRequest.newBuilder().setName("").build();
 
-    try {
-      stub.sayHello(request);
-    } catch (StatusRuntimeException e) {
-      assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT);
+    assertThatThrownBy(() -> stub.sayHello(request))
+        .isInstanceOf(StatusRuntimeException.class)
+        .satisfies(
+            e -> {
+              StatusRuntimeException sre = (StatusRuntimeException) e;
+              assertThat(sre.getStatus().getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT);
 
-      com.google.rpc.Status status = io.grpc.protobuf.StatusProto.fromThrowable(e);
-      assertThat(status).isNotNull();
-      assertThat(status.getDetailsCount()).isGreaterThan(0);
+              com.google.rpc.Status status = io.grpc.protobuf.StatusProto.fromThrowable(sre);
+              assertThat(status).isNotNull();
+              assertThat(status.getDetailsCount()).isGreaterThan(0);
 
-      Any detail = status.getDetails(0);
-      assertThat(detail.is(Violations.class)).isTrue();
+              Any detail = status.getDetails(0);
+              assertThat(detail.is(Violations.class)).isTrue();
 
-      Violations violations = detail.unpack(Violations.class);
-      assertThat(violations.getViolationsCount()).isGreaterThan(0);
+              Violations violations = detail.unpack(Violations.class);
+              assertThat(violations.getViolationsCount()).isGreaterThan(0);
 
-      var violation = violations.getViolations(0);
-      assertThat(violation.getField().getElements(0).getFieldName()).isEqualTo("name");
-    }
+              var violation = violations.getViolations(0);
+              assertThat(violation.getField().getElements(0).getFieldName()).isEqualTo("name");
+            });
   }
 }
